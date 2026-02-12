@@ -3,14 +3,34 @@ from typing import List, Optional
 from datetime import datetime, date, time
 from decimal import Decimal
 
+
 # --- Utilisateur Schemas ---
 class UtilisateurBase(BaseModel):
     email: EmailStr
     nom: str
     role: Optional[str] = "client"
 
+
 class UtilisateurCreate(UtilisateurBase):
     password: str
+
+
+class UtilisateurUpdate(BaseModel):
+    """
+    Champs modifiables par l'utilisateur dans la rubrique
+    'Informations personnelles'.
+    """
+    email: Optional[EmailStr] = None
+    nom: Optional[str] = None
+
+
+class ChangePassword(BaseModel):
+    """
+    Payload pour le changement de mot de passe dans l'onglet Sécurité.
+    """
+    old_password: str
+    new_password: str
+
 
 class Utilisateur(UtilisateurBase):
     id: int
