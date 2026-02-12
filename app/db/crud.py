@@ -5,6 +5,7 @@ from app.db import models, schemas
 from app.core.security import get_password_hash
 from fastapi import HTTPException
 
+
 # --- Utilisateur ---
 def get_user_by_email(db: Session, email: str):
     try:
@@ -12,6 +13,7 @@ def get_user_by_email(db: Session, email: str):
     except Exception as e:
         print(f"Erreur DB recherche: {e}")
         raise HTTPException(status_code=500, detail=f"Erreur DB: {str(e)}")
+
 
 def create_user(db: Session, user: schemas.UtilisateurCreate):
     try:
@@ -30,6 +32,44 @@ def create_user(db: Session, user: schemas.UtilisateurCreate):
         db.rollback()
         print(f"Erreur DB création: {e}")
         raise HTTPException(status_code=500, detail=f"Erreur d'insertion DB: {str(e)}")
+
+
+def update_user(db: Session, db_user: models.Utilisateur, user_in: schemas.UtilisateurUpdate):
+    """
+    Met à jour les champs d'identité de l'utilisateur (nom, email)
+    utilisés dans la section 'Informations personnelles'.
+    """
+    try:
+        if user_in.email is not None:
+            db_user.email = user_in.email
+        if user_in.nom is not None:
+            db_user.nom = user_in.nom
+
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        db.rollback()
+        print(f"Erreur DB mise à jour utilisateur: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur DB mise à jour: {str(e)}")
+
+
+def change_user_password(db: Session, db_user: models.Utilisateur, new_password: str):
+    """
+    Met à jour le mot de passe de l'utilisateur.
+    Utilisé dans la section 'Sécurité' du profil.
+    """
+    try:
+        db_user.mot_de_passe = get_password_hash(new_password)
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+        return db_user
+    except Exception as e:
+        db.rollback()
+        print(f"Erreur DB changement mot de passe: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur DB changement mot de passe: {str(e)}")
 
 
 # --- Vol ---
