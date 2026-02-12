@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pydantic
+pydantic-settings
+python-jose[cryptography]
+# Version compatible avec bcrypt 3.2.x
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+python-multipart
+python-dotenv
+httpx
+pytest
