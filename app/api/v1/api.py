@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1 import auth, users, flights, payments, reservations
+from app.api.v1 import auth, users, flights, payments, reservations, admin
 
 api_router = APIRouter()
 
@@ -10,6 +10,9 @@ api_router.include_router(users.router, prefix="/users", tags=["users"])
 # Vols
 api_router.include_router(flights.router, prefix="/flights", tags=["flights"])
 
-# Paiements & réservations (exposés dans l'API v1)
+# Paiements & réservations
 api_router.include_router(payments.router, prefix="/payments", tags=["payments"])
 api_router.include_router(reservations.router, prefix="/reservations", tags=["reservations"])
+
+# Tableau de bord / stats agents
+api_router.include_router(admin.router, prefix="/admin", tags=["admin"])

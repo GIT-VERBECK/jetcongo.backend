@@ -102,3 +102,51 @@ class ReservationCreate(BaseModel):
     date: date
     time: time
     seats: int = 1
+
+
+# --- Admin / Gestion Avion ---
+class AvionCreate(AvionBase):
+    """
+    Création d'un avion dans le module d'administration.
+    """
+    pass
+
+
+class AvionUpdate(BaseModel):
+    """
+    Mise à jour partielle d'un avion (admin).
+    """
+    modele: Optional[str] = None
+    capacite: Optional[int] = None
+    statut: Optional[str] = None
+    compagnie: Optional[str] = None
+
+
+# --- Admin / Gestion Utilisateur ---
+class AdminUserUpdate(BaseModel):
+    """
+    Mise à jour d'un utilisateur par un administrateur.
+    Permet en plus de changer le rôle et le statut métier.
+    """
+    email: Optional[EmailStr] = None
+    nom: Optional[str] = None
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+# --- Admin / Gestion Réservation ---
+class AdminReservationCreate(BaseModel):
+    """
+    Création d'une réservation côté back-office.
+    """
+    utilisateur_id: int
+    vol_id: int
+    seats: int
+
+
+class AdminReservationUpdate(BaseModel):
+    """
+    Mise à jour partielle d'une réservation côté back-office.
+    """
+    seats: Optional[int] = None
+    statut: Optional[str] = None

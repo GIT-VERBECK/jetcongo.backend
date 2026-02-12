@@ -1,11 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from decimal import Decimal
 
 from app.api import deps
 from app.db import models, schemas
 
 router = APIRouter()
+
+
+def _compute_taken_seats(db: Session, vol_id: int) -> int:
+    """
+    Calcule le nombre total de places déjà réservées pour un vol donné,
+    en excluant les réservations annulées.
+    """
+    total = (
+        db.query(func.coalesce(func.sum(models.Reservation.nombre_place), 0))
+        .filter(
+            models.Reservation.vol_id == vol_id,
+            models.Reservation.statut != "ANNULEE",
+        )
+        .scalar()
+        or 0
+    )
+    return int(total)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -15,7 +33,8 @@ def create_reservation(
     current_user: models.Utilisateur = Depends(deps.get_current_user),
 ):
     """
-    Crée une réservation simple pour un vol donné et calcule le total à payer.
+    Crée une réservation simple pour un vol donné, en respectant la capacité
+    de l'avion associé et en calculant le total à payer.
     """
     vol = (
         db.query(models.Vol)
@@ -24,6 +43,28 @@ def create_reservation(
     )
     if not vol:
         raise HTTPException(status_code=404, detail="Vol introuvable.")
+
+    avion = vol.avion
+    if not avion or avion.capacite is None or avion.capacite <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="La capacité de l'avion associé au vol est invalide.",
+        )
+
+    if payload.seats <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Le nombre de places doit être strictement positif.",
+        )
+
+    taken_seats = _compute_taken_seats(db, vol.id)
+    remaining = avion.capacite - taken_seats
+
+    if payload.seats > remaining:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Capacité insuffisante sur ce vol. Places restantes : {remaining}.",
+        )
 
     # Calcul du total à payer côté backend (même logique que le frontend)
     seats = Decimal(payload.seats)

@@ -11,6 +11,8 @@ class Utilisateur(Base):
     email = Column(String(100), unique=True, index=True, nullable=False)
     mot_de_passe = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default="client") # 'client' ou 'admin'
+    # Statut métier de l'utilisateur (ACTIVE, SUSPENDED, etc.)
+    status = Column(String(50), nullable=True)
     # Avatar binaire et type MIME optionnels
     avatar = Column(LargeBinary, nullable=True)
     avatar_mime = Column(String(50), nullable=True)
