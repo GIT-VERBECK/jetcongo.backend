@@ -150,3 +150,33 @@ class AdminReservationUpdate(BaseModel):
     """
     seats: Optional[int] = None
     statut: Optional[str] = None
+
+
+# --- Admin / Gestion Vol ---
+class VolCreate(BaseModel):
+    """
+    Création d'un vol côté back-office.
+    """
+    flight_code: str
+    aircraft_id: int
+    depart_city: str
+    arrivee_city: str
+    date_depart: date
+    heure_depart: time
+    price: Decimal
+    status: str = "actif"
+
+
+class VolUpdate(BaseModel):
+    """
+    Mise à jour partielle d'un vol.
+    """
+    flight_code: Optional[str] = None
+    aircraft_id: Optional[int] = None
+    depart_city: Optional[str] = None
+    arrivee_city: Optional[str] = None
+    date_depart: Optional[date] = None
+    heure_depart: Optional[time] = None
+    price: Optional[Decimal] = None
+    status: Optional[str] = None
+

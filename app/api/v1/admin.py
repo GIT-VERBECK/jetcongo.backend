@@ -292,6 +292,135 @@ def get_admin_flights(
     }
 
 
+@router.post("/flights", status_code=status.HTTP_201_CREATED)
+def create_flight(
+    payload: schemas.VolCreate,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Utilisateur = Depends(deps.get_current_user),
+) -> Dict[str, Any]:
+    """
+    Crée un nouveau vol dans le système.
+    """
+    ensure_agent(current_user)
+
+    # Vérification avion
+    avion = db.query(models.Avion).filter(models.Avion.id == payload.aircraft_id).first()
+    if not avion:
+        raise HTTPException(status_code=404, detail="Avion introuvable.")
+    
+    # Vérification cohérence (ex: pas de vol dans le passé ?)
+    # Pour l'instant on autorise tout.
+
+    vol = models.Vol(
+        # flight_code n'est pas dans le modèle actuel (généré à la volée ou manquant ?), 
+        # Le modèle Vol a: ville_depart, ville_arrivee, date_depart, heure_depart, prix, statut, avion_id
+        # Le payload front envoie 'flight_code', mais le modèle DB ne l'a pas en colonne dédiée visiblement.
+        # On va l'ignorer pour l'instant ou supposer qu'on utilise ID.
+        # UPDATE: Le front envoie 'flight_code', mais le backend génère des faux codes 'JC-XXX'.
+        # On va ignorer flight_code du payload ou le stocker si on ajoute la colonne.
+        # Pour l'instant, on mappe les champs existants.
+        
+        ville_depart=payload.depart_city,
+        ville_arrivee=payload.arrivee_city,
+        date_depart=payload.date_depart,
+        heure_depart=payload.heure_depart,
+        prix=payload.price,
+        statut=payload.status,
+        avion_id=payload.aircraft_id
+    )
+    
+    db.add(vol)
+    db.commit()
+    db.refresh(vol)
+    
+    # Relecture avec avion pour le retour
+    db.refresh(vol, attribute_names=["avion"])
+    
+    return {
+        "id": vol.id,
+        "flight_code": f"JC-{vol.id:03d}",
+        "depart_city": vol.ville_depart,
+        "arrivee_city": vol.ville_arrivee,
+        "date_depart": vol.date_depart,
+        "heure_depart": vol.heure_depart,
+        "price": float(vol.prix),
+        "status": vol.statut,
+        "aircraft_model": vol.avion.modele if vol.avion else None
+    }
+
+
+@router.put("/flights/{flight_id}")
+def update_flight(
+    flight_id: int,
+    payload: schemas.VolUpdate,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Utilisateur = Depends(deps.get_current_user),
+) -> Dict[str, Any]:
+    """
+    Met à jour un vol existant.
+    """
+    ensure_agent(current_user)
+
+    vol = db.query(models.Vol).filter(models.Vol.id == flight_id).first()
+    if not vol:
+        raise HTTPException(status_code=404, detail="Vol introuvable.")
+
+    if payload.aircraft_id is not None:
+        avion = db.query(models.Avion).filter(models.Avion.id == payload.aircraft_id).first()
+        if not avion:
+            raise HTTPException(status_code=404, detail="Avion introuvable.")
+        vol.avion_id = payload.aircraft_id
+
+    if payload.depart_city is not None:
+        vol.ville_depart = payload.depart_city
+    if payload.arrivee_city is not None:
+        vol.ville_arrivee = payload.arrivee_city
+    if payload.date_depart is not None:
+        vol.date_depart = payload.date_depart
+    if payload.heure_depart is not None:
+        vol.heure_depart = payload.heure_depart
+    if payload.price is not None:
+        vol.prix = payload.price
+    if payload.status is not None:
+        vol.statut = payload.status
+
+    db.commit()
+    db.refresh(vol)
+    
+    return {
+        "id": vol.id,
+        "message": "Vol mis à jour avec succès"
+    }
+
+
+@router.delete("/flights/{flight_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_flight(
+    flight_id: int,
+    db: Session = Depends(deps.get_db),
+    current_user: models.Utilisateur = Depends(deps.get_current_user),
+) -> None:
+    """
+    Supprime un vol. 
+    Attention: vérifier s'il a des réservations ?
+    """
+    ensure_agent(current_user)
+
+    vol = db.query(models.Vol).filter(models.Vol.id == flight_id).first()
+    if not vol:
+        raise HTTPException(status_code=404, detail="Vol introuvable.")
+
+    # Vérification réservations
+    has_res = db.query(models.Reservation).filter(models.Reservation.vol_id == vol.id).count()
+    if has_res > 0:
+         raise HTTPException(
+            status_code=400, 
+            detail="Impossible de supprimer ce vol car il possède des réservations. Veuillez l'annuler à la place."
+        )
+
+    db.delete(vol)
+    db.commit()
+
+
 # --- Gestion Avions (Fleet Management) ---
 @router.get("/aircrafts")
 def list_aircrafts(

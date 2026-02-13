@@ -5,6 +5,8 @@ from decimal import Decimal
 
 from app.api import deps
 from app.db import models
+from app.core.email import email_manager
+from datetime import datetime
 
 router = APIRouter()
 
@@ -16,7 +18,7 @@ class PaymentRequest(BaseModel):
 
 
 @router.post("/process", status_code=status.HTTP_200_OK)
-def process_payment(
+async def process_payment(
     payload: PaymentRequest,
     db: Session = Depends(deps.get_db),
     current_user: models.Utilisateur = Depends(deps.get_current_user),
@@ -77,6 +79,27 @@ def process_payment(
     db.add(reservation)
     db.commit()
     db.refresh(reservation)
+
+    # Envoi du reçu par mail
+    try:
+        subtotal = (reservation.vol.prix * reservation.nombre_place) if reservation.vol and reservation.nombre_place else montant
+        taxes = (montant - subtotal) if subtotal < montant else Decimal("0.00")
+        
+        email_data = {
+            "ref": f"JC-{datetime.now().year}-{reservation.id:04d}",
+            "date_paiement": datetime.now().strftime("%d %B %Y").upper(),
+            "client_name": current_user.nom,
+            "trajet": f"{reservation.vol.ville_depart} → {reservation.vol.ville_arrivee}" if reservation.vol else "N/A",
+            "seats": int(reservation.nombre_place) if reservation.nombre_place else 1,
+            "depart_time": f"{reservation.vol.date_depart} {reservation.vol.heure_depart}" if reservation.vol else "N/A",
+            "subtotal": f"{subtotal:.2f}",
+            "taxes": f"{taxes:.2f}",
+            "total": f"{montant:.2f}"
+        }
+        await email_manager.send_receipt(current_user.email, email_data)
+    except Exception as e:
+        print(f"Erreur envoi mail: {e}")
+        # On ne bloque pas la réponse si le mail échoue
 
     return {
         "status": "payment_success",
